@@ -1,11 +1,11 @@
 import '@src/Popup.css';
 import { useStorage, withErrorBoundary, withSuspense } from '@extension/shared';
 import { exampleThemeStorage } from '@extension/storage';
-import { t } from '@extension/i18n';
 import { ToggleButton } from '@extension/ui';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, memo, useMemo } from 'react';
+import { extractDomain, extractShowTitle } from './utils';
 
-// Add interface for history items
+// Update interface for history items
 interface HistoryItem {
   id: string;
   url: string;
@@ -13,91 +13,315 @@ interface HistoryItem {
   lastVisitTime: number;
 }
 
-const notificationOptions = {
-  type: 'basic',
-  iconUrl: chrome.runtime.getURL('icon-34.png'),
-  title: 'Injecting content script error',
-  message: 'You cannot inject script here!',
-} as const;
+// Update interface for double-grouped history items
+interface GroupedGroupedHistory {
+  [domain: string]: {
+    [showTitle: string]: HistoryItem[];
+  };
+}
+
+// Add this constant at the top of the file, after the interfaces
+const VIDEO_DOMAINS = ['bilibili.com/bangumi', 'iyf.tv/play'];
+
+// Component for a single history item
+const HistoryItemComponent = memo(({ item, isLight }: { item: HistoryItem; isLight: boolean }) => (
+  <div className={`p-2 mb-1 rounded ${isLight ? 'bg-white shadow-sm' : 'bg-gray-700'}`}>
+    <div className="font-medium truncate">{item.title || 'Untitled'}</div>
+    <div className="flex justify-between text-xs">
+      <a href={item.url} target="_blank" className="truncate cursor-pointer flex text-blue-400 hover:underline">
+        {item.url}
+      </a>
+      <span className="text-gray-400 whitespace-nowrap ml-2">{new Date(item.lastVisitTime).toLocaleString()}</span>
+    </div>
+  </div>
+));
+
+// Component for show title block
+const ShowBlock = memo(
+  ({
+    domain,
+    showTitle,
+    items,
+    isLight,
+    isExpanded,
+    toggleBlock,
+  }: {
+    domain: string;
+    showTitle: string;
+    items: HistoryItem[];
+    isLight: boolean;
+    isExpanded: boolean;
+    toggleBlock: (domain: string, showTitle: string) => void;
+  }) => (
+    <div className="mb-3">
+      <div
+        className={`flex items-center justify-between p-1.5 ${
+          isLight ? 'bg-gray-100' : 'bg-gray-600'
+        } rounded-t cursor-pointer hover:bg-opacity-80`}
+        onClick={e => {
+          e.stopPropagation();
+          toggleBlock(domain, showTitle);
+        }}
+        onKeyDown={e => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.stopPropagation();
+            toggleBlock(domain, showTitle);
+          }
+        }}
+        role="button"
+        tabIndex={0}
+        aria-expanded={isExpanded}>
+        <h4 className="font-medium flex items-center">
+          <span className="mr-1 text-xs">{isExpanded ? '▼' : '►'}</span>
+          {showTitle} ({items.length})
+        </h4>
+        {!isExpanded && items.length > 0 && (
+          <span className="text-xs opacity-70">Latest: {new Date(items[0].lastVisitTime).toLocaleDateString()}</span>
+        )}
+      </div>
+
+      {isExpanded && (
+        <div className="p-1">
+          {items.map(item => (
+            <HistoryItemComponent key={item.id} item={item} isLight={isLight} />
+          ))}
+        </div>
+      )}
+    </div>
+  ),
+);
+
+// Component for domain block
+const DomainBlock = memo(
+  ({
+    domain,
+    showGroups,
+    isLight,
+    expandedBlocks,
+    toggleBlock,
+  }: {
+    domain: string;
+    showGroups: { [showTitle: string]: HistoryItem[] };
+    isLight: boolean;
+    expandedBlocks: { [key: string]: boolean };
+    toggleBlock: (domain: string, showTitle?: string) => void;
+  }) => {
+    const isDomainExpanded = !!expandedBlocks[domain];
+
+    const isShowExpanded = useCallback(
+      (showTitle: string): boolean => {
+        return !!expandedBlocks[`${domain}-${showTitle}`];
+      },
+      [domain, expandedBlocks],
+    );
+
+    const totalItems = useMemo(() => Object.values(showGroups).flat().length, [showGroups]);
+
+    const showCount = Object.keys(showGroups).length;
+
+    return (
+      <div className="mb-6">
+        <div
+          className={`flex items-center p-2 ${
+            isLight ? 'bg-gray-300' : 'bg-gray-600'
+          } rounded-t cursor-pointer hover:bg-opacity-90`}
+          onClick={() => toggleBlock(domain)}
+          onKeyDown={e => {
+            if (e.key === 'Enter' || e.key === ' ') toggleBlock(domain);
+          }}
+          role="button"
+          tabIndex={0}
+          aria-expanded={isDomainExpanded}>
+          <span className="mr-1 text-xs">{isDomainExpanded ? '▼' : '►'}</span>
+          <img
+            src={`https://www.google.com/s2/favicons?domain=${domain}&sz=32`}
+            alt="domain icon"
+            className="w-5 h-5 mr-2"
+            onError={e => {
+              (e.target as HTMLImageElement).src = chrome.runtime.getURL('icon-34.png');
+            }}
+          />
+          <h3 className="font-bold">
+            {domain} ({totalItems})
+          </h3>
+
+          {!isDomainExpanded && <span className="text-xs opacity-70 ml-auto">{showCount} shows</span>}
+        </div>
+
+        {isDomainExpanded && (
+          <div className={`rounded-b ${isLight ? 'bg-gray-200' : 'bg-gray-700'} p-2 mb-2`}>
+            {Object.entries(showGroups).map(([showTitle, items]) => (
+              <ShowBlock
+                key={`${domain}-${showTitle}`}
+                domain={domain}
+                showTitle={showTitle}
+                items={items}
+                isLight={isLight}
+                isExpanded={isShowExpanded(showTitle)}
+                toggleBlock={(d, s) => toggleBlock(d, s)}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  },
+);
 
 const Popup = () => {
   const theme = useStorage(exampleThemeStorage);
   const isLight = theme === 'light';
-  const [history, setHistory] = useState<HistoryItem[]>([]);
+  const [groupedGroupedHistory, setGroupedGroupedHistory] = useState<GroupedGroupedHistory>({});
+  const [expandedBlocks, setExpandedBlocks] = useState<{ [key: string]: boolean }>({});
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Function to toggle block expansion
+  const toggleBlock = useCallback((domain: string, showTitle: string = '') => {
+    const key = showTitle ? `${domain}-${showTitle}` : domain;
+    setExpandedBlocks(prev => ({
+      ...prev,
+      [key]: !prev[key],
+    }));
+  }, []);
 
   useEffect(() => {
-    // Fetch last 10 history items from the past 24 hours
     const fetchHistory = async () => {
-      const millisecondsPerHour = 1000 * 60 * 60;
-      const oneDayAgo = new Date().getTime() - millisecondsPerHour * 24;
+      setIsLoading(true);
 
       try {
+        const millisecondsPerYear = 1000 * 60 * 60 * 24 * 365; // milliseconds in a year
+        const oneYearAgo = new Date().getTime() - millisecondsPerYear;
+
         const items = await chrome.history.search({
           text: '', // Search all history
-          startTime: oneDayAgo,
-          maxResults: 10,
+          startTime: oneYearAgo,
+          maxResults: 100000,
         });
-        // Map Chrome history items to our HistoryItem interface
-        const mappedItems: HistoryItem[] = items.map(item => ({
-          id: item.id || '',
-          url: item.url || '',
-          title: item.title || '',
-          lastVisitTime: item.lastVisitTime || 0,
-        }));
-        setHistory(mappedItems);
+
+        // Filter out video websites and map to our interface
+        const mappedItems: HistoryItem[] = items
+          .filter(item => {
+            try {
+              return VIDEO_DOMAINS.some(domain => item.url!.includes(domain));
+            } catch {
+              return false;
+            }
+          })
+          .map(item => ({
+            id: item.id || '',
+            url: item.url || '',
+            title: item.title || '',
+            lastVisitTime: item.lastVisitTime || 0,
+          }));
+
+        // Group the items efficiently
+        const grouped = processHistoryItems(mappedItems);
+        setGroupedGroupedHistory(grouped);
+
+        // Initialize expanded blocks
+        initializeExpandedBlocks(grouped);
       } catch (error) {
         console.error('Error fetching history:', error);
+      } finally {
+        setIsLoading(false);
       }
     };
 
     fetchHistory();
   }, []);
 
-  const injectContentScript = async () => {
-    const [tab] = await chrome.tabs.query({ currentWindow: true, active: true });
+  // Process history items into grouped structure
+  const processHistoryItems = (items: HistoryItem[]): GroupedGroupedHistory => {
+    const grouped: GroupedGroupedHistory = {};
 
-    if (tab.url!.startsWith('about:') || tab.url!.startsWith('chrome:')) {
-      chrome.notifications.create('inject-error', notificationOptions);
-    }
+    items.forEach(item => {
+      const domain = extractDomain(item.url);
+      const showTitle = extractShowTitle(item.title, domain);
 
-    await chrome.scripting
-      .executeScript({
-        target: { tabId: tab.id! },
-        files: ['/content-runtime/index.iife.js'],
-      })
-      .catch(err => {
-        // Handling errors related to other paths
-        if (err.message.includes('Cannot access a chrome:// URL')) {
-          chrome.notifications.create('inject-error', notificationOptions);
-        }
+      if (!grouped[domain]) {
+        grouped[domain] = {};
+      }
+
+      if (!grouped[domain][showTitle]) {
+        grouped[domain][showTitle] = [];
+      }
+
+      grouped[domain][showTitle].push(item);
+    });
+
+    // Sort items within each show group
+    Object.keys(grouped).forEach(domain => {
+      Object.keys(grouped[domain]).forEach(showTitle => {
+        grouped[domain][showTitle].sort((a, b) => b.lastVisitTime - a.lastVisitTime);
       });
+    });
+
+    return grouped;
   };
 
+  // Initialize expanded blocks state
+  const initializeExpandedBlocks = (grouped: GroupedGroupedHistory) => {
+    const initialExpanded: { [key: string]: boolean } = {};
+
+    // Expand all domains by default
+    Object.keys(grouped).forEach(domain => {
+      initialExpanded[domain] = true;
+    });
+
+    // Expand only the most recent show in each domain
+    Object.entries(grouped).forEach(([domain, showGroups]) => {
+      let mostRecentShow = '';
+      let mostRecentTime = 0;
+
+      Object.entries(showGroups).forEach(([showTitle, items]) => {
+        if (items.length > 0 && items[0].lastVisitTime > mostRecentTime) {
+          mostRecentTime = items[0].lastVisitTime;
+          mostRecentShow = showTitle;
+        }
+      });
+
+      if (mostRecentShow) {
+        initialExpanded[`${domain}-${mostRecentShow}`] = true;
+      }
+    });
+
+    setExpandedBlocks(initialExpanded);
+  };
+
+  // Calculate total items count
+  const totalItemsCount = useMemo(
+    () => Object.values(groupedGroupedHistory).flatMap(domainGroup => Object.values(domainGroup).flat()).length,
+    [groupedGroupedHistory],
+  );
+
   return (
-    <div className={`App ${isLight ? 'bg-slate-50' : 'bg-gray-800'}`}>
-      <header className={`App-header ${isLight ? 'text-gray-900' : 'text-gray-100'}`}>
-        <h2 className="text-lg font-bold mb-4">Recent History</h2>
-
-        <div className="w-full max-h-60 overflow-y-auto mb-4 text-sm">
-          {history.map(item => (
-            <div key={item.id} className={`p-2 mb-2 rounded ${isLight ? 'bg-white shadow-sm' : 'bg-gray-700'}`}>
-              <div className="font-medium truncate">{item.title || 'Untitled'}</div>
-              <div className="text-xs opacity-75 truncate">{item.url}</div>
-              <div className="text-xs opacity-75">{new Date(item.lastVisitTime).toLocaleString()}</div>
-            </div>
-          ))}
+    <div className={`App flex flex-col ${isLight ? 'bg-slate-50 text-gray-900' : 'bg-gray-800 text-gray-100'}`}>
+      <header className={`flex items-center justify-between mb-2`}>
+        <h2 className="text-lg font-bold">Recent History ({totalItemsCount})</h2>
+        <div className="hover:bg-slate-500/20 rounded-full p-1 leading-none">
+          <ToggleButton className="size-5"></ToggleButton>
         </div>
-
-        <button
-          className={
-            'font-bold mt-4 py-1 px-4 rounded shadow hover:scale-105 ' +
-            (isLight ? 'bg-blue-200 text-black' : 'bg-gray-700 text-white')
-          }
-          onClick={injectContentScript}>
-          Click to inject Content Script
-        </button>
-        <ToggleButton>{t('toggleTheme')}</ToggleButton>
       </header>
+      <main>
+        {isLoading ? (
+          <div className="w-full text-center py-8">Loading history...</div>
+        ) : totalItemsCount === 0 ? (
+          <div className="w-full text-center py-8">No video history found</div>
+        ) : (
+          <div className="overflow-y-auto mb-4 text-sm">
+            {Object.entries(groupedGroupedHistory).map(([domain, showGroups]) => (
+              <DomainBlock
+                key={domain}
+                domain={domain}
+                showGroups={showGroups}
+                isLight={isLight}
+                expandedBlocks={expandedBlocks}
+                toggleBlock={toggleBlock}
+              />
+            ))}
+          </div>
+        )}
+      </main>
     </div>
   );
 };
