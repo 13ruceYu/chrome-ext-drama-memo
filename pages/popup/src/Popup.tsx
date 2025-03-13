@@ -312,33 +312,40 @@ const Popup = () => {
   );
 
   return (
-    <div className={`App flex flex-col ${isLight ? 'bg-slate-50 text-gray-900' : 'bg-gray-800 text-gray-100'}`}>
-      <header className={`flex items-center justify-between mb-2`}>
+    <div
+      className={`App flex flex-col h-screen ${
+        isLight ? 'bg-slate-50 text-gray-900 light-theme' : 'bg-gray-800 text-gray-100 dark-theme'
+      }`}>
+      <header
+        className={`flex items-center justify-between p-2 sticky top-0 z-10 ${
+          isLight ? 'bg-slate-50' : 'bg-gray-800'
+        }`}>
         <h2 className="text-lg font-bold">Recent History ({totalItemsCount})</h2>
         <div className="hover:bg-slate-500/20 rounded-full p-1 leading-none">
           <ToggleButton className="size-5"></ToggleButton>
         </div>
       </header>
-      <main>
+      <main className="flex-1 overflow-y-auto overflow-x-hidden px-2">
         {isLoading ? (
           <div className="w-full text-center py-8">Loading history...</div>
         ) : totalItemsCount === 0 ? (
           <div className="w-full text-center py-8">No video history found</div>
         ) : (
-          <div className="overflow-y-auto mb-4 text-sm">
-            {Object.entries(groupedGroupedHistory).map(([domain, showGroups]) => (
-              <DomainBlock
-                key={domain}
-                domain={domain}
-                showGroups={showGroups}
-                isLight={isLight}
-                expandedBlocks={expandedBlocks}
-                toggleBlock={toggleBlock}
-              />
-            ))}
-          </div>
+          Object.entries(groupedGroupedHistory).map(([domain, showGroups]) => (
+            <DomainBlock
+              key={domain}
+              domain={domain}
+              showGroups={showGroups}
+              isLight={isLight}
+              expandedBlocks={expandedBlocks}
+              toggleBlock={toggleBlock}
+            />
+          ))
         )}
       </main>
+      <footer className="py-2 text-center text-xs opacity-50">
+        {!isLoading && totalItemsCount > 0 && `Showing ${totalItemsCount} history items`}
+      </footer>
     </div>
   );
 };
