@@ -52,43 +52,60 @@ const ShowBlock = memo(
     isLight: boolean;
     isExpanded: boolean;
     toggleBlock: (domain: string, showTitle: string) => void;
-  }) => (
-    <div className="mb-3">
-      <div
-        className={`flex items-center justify-between p-1.5 ${
-          isLight ? 'bg-gray-100' : 'bg-gray-600'
-        } rounded-t cursor-pointer hover:bg-opacity-80`}
-        onClick={e => {
-          e.stopPropagation();
-          toggleBlock(domain, showTitle);
-        }}
-        onKeyDown={e => {
-          if (e.key === 'Enter' || e.key === ' ') {
+  }) => {
+    const [showAll, setShowAll] = useState(false);
+    const displayItems = showAll ? items : items.slice(0, 5);
+
+    return (
+      <div className="mb-3">
+        <div
+          className={`flex items-center justify-between p-1.5 ${
+            isLight ? 'bg-gray-100' : 'bg-gray-600'
+          } rounded-t cursor-pointer hover:bg-opacity-80`}
+          onClick={e => {
             e.stopPropagation();
             toggleBlock(domain, showTitle);
-          }
-        }}
-        role="button"
-        tabIndex={0}
-        aria-expanded={isExpanded}>
-        <h4 className="font-medium flex items-center">
-          <span className="mr-1 text-xs">{isExpanded ? '▼' : '►'}</span>
-          {showTitle} ({items.length})
-        </h4>
-        {!isExpanded && items.length > 0 && (
-          <span className="text-xs opacity-70">Latest: {new Date(items[0].lastVisitTime).toLocaleDateString()}</span>
+          }}
+          onKeyDown={e => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.stopPropagation();
+              toggleBlock(domain, showTitle);
+            }
+          }}
+          role="button"
+          tabIndex={0}
+          aria-expanded={isExpanded}>
+          <h4 className="font-medium flex items-center">
+            <span className="mr-1 text-xs">{isExpanded ? '▼' : '►'}</span>
+            {showTitle} ({items.length})
+          </h4>
+          {!isExpanded && items.length > 0 && (
+            <span className="text-xs opacity-70">Latest: {new Date(items[0].lastVisitTime).toLocaleDateString()}</span>
+          )}
+        </div>
+
+        {isExpanded && (
+          <div className="p-1">
+            {displayItems.map(item => (
+              <HistoryItemComponent key={item.id} item={item} isLight={isLight} />
+            ))}
+            {items.length > 5 && (
+              <button
+                onClick={e => {
+                  e.stopPropagation();
+                  setShowAll(!showAll);
+                }}
+                className={`w-full text-center py-1 mt-2 text-sm rounded ${
+                  isLight ? 'bg-gray-100 hover:bg-gray-200' : 'bg-gray-600 hover:bg-gray-500'
+                }`}>
+                {showAll ? 'Show Less' : `Show All (${items.length - 5} more)`}
+              </button>
+            )}
+          </div>
         )}
       </div>
-
-      {isExpanded && (
-        <div className="p-1">
-          {items.map(item => (
-            <HistoryItemComponent key={item.id} item={item} isLight={isLight} />
-          ))}
-        </div>
-      )}
-    </div>
-  ),
+    );
+  },
 );
 
 // Component for domain block
