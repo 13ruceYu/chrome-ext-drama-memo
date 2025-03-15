@@ -21,7 +21,7 @@ interface GroupedGroupedHistory {
 }
 
 // Add this constant at the top of the file, after the interfaces
-const VIDEO_DOMAINS = ['bilibili.com/bangumi', 'iyf.tv/play'];
+const VIDEO_DOMAINS = ['bilibili.com/bangumi', 'iyf.tv/play', 'zxzjhd.com/video'];
 
 // Component for a single history item
 const HistoryItemComponent = memo(({ item, isLight }: { item: HistoryItem; isLight: boolean }) => (
@@ -214,6 +214,7 @@ const Popup = () => {
           startTime: oneYearAgo,
           maxResults: 100000,
         });
+        console.log(items);
 
         // Filter out video websites and map to our interface
         const mappedItems: HistoryItem[] = items

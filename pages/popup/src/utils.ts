@@ -22,22 +22,47 @@ export const extractShowTitle = (title: string, domain: string): string => {
 
   // Different extraction logic based on domain
   if (domain === 'bilibili.com') {
-    // For bilibili, show titles typically appear before the episode info
-    const showMatch = title.match(/^(.+?)\s*第[一二三四五六七八九十百千]+[季集]/);
-    if (showMatch) return showMatch[1].trim();
-
-    // If it's a movie
+    // Handle movie format
     if (title.includes('-电影-')) {
       return title.split('-')[0].trim();
     }
+
+    // For bilibili TV shows, extract title before season/episode info
+    const seasonEpisodePattern = /^(.*?)\s*(?:第[\u4e00-\u9fa5]+季)?第[\u4e00-\u9fa5\d]+集/;
+    const showMatch = title.match(seasonEpisodePattern);
+    if (showMatch) return showMatch[1].trim();
   } else if (domain === 'iyf.tv') {
-    // For iyf.tv, show titles typically appear at the beginning
-    const match = title.match(/^(.+?)[-－](\d+)/);
+    // For iyf.tv, show titles typically include season in the title
+    // Example: "别对我说谎第3季-04-免费在线观看-爱壹帆"
+    const match = title.match(/^(.*?)(?:-\d+)?-/);
     if (match) return match[1].trim();
+  } else if (domain === 'zxzjhd.com') {
+    // For zxzjhd.com, titles are often in format: "《Show Title》第X集在线观看- Site"
+    // Extract content within 《》 brackets if present
+    const bracketMatch = title.match(/《(.*?)》/);
+    if (bracketMatch) return bracketMatch[0]; // Return with brackets
+
+    // Fallback for zxzjhd.com if no brackets
+    const episodeMatch = title.match(/^(.*?)第[\u4e00-\u9fa5\d]+集/);
+    if (episodeMatch) return episodeMatch[1].trim();
   }
 
-  // Default fallback
-  // Split by common separators and take the first part
-  const parts = title.split(/[-–—:：]/);
-  return parts[0].trim() || 'Unknown';
+  // Default fallback - more aggressive splitting to handle various formats
+  // Try common separators
+  const separators = ['-', '–', '—', ':', '：'];
+  for (const separator of separators) {
+    if (title.includes(separator)) {
+      const parts = title.split(separator);
+      // Return first non-empty part
+      const firstPart = parts[0].trim();
+      if (firstPart) return firstPart;
+    }
+  }
+
+  // If no separators found, try to identify episodes with regex
+  const episodeMatch = title.match(/^(.*?)(?:\s+第[\u4e00-\u9fa5\d]+[季集话部])/);
+  if (episodeMatch) return episodeMatch[1].trim();
+
+  // Last resort - return the whole title or first 30 chars if very long
+  return title.length > 30 ? title.substring(0, 30) + '...' : title;
 };
