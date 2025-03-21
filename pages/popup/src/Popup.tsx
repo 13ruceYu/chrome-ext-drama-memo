@@ -24,17 +24,29 @@ interface GroupedGroupedHistory {
 const VIDEO_DOMAINS = ['bilibili.com/bangumi', 'iyf.tv/play', 'zxzjhd.com/video'];
 
 // Component for a single history item
-const HistoryItemComponent = memo(({ item, isLight }: { item: HistoryItem; isLight: boolean }) => (
-  <div className={`p-2 mb-1 rounded ${isLight ? 'bg-white shadow-sm' : 'bg-gray-700'}`}>
-    <div className="font-medium truncate">{item.title || 'Untitled'}</div>
-    <div className="flex justify-between text-xs">
-      <a href={item.url} target="_blank" className="truncate cursor-pointer flex text-blue-400 hover:underline">
-        {item.url}
-      </a>
-      <span className="text-gray-400 whitespace-nowrap ml-2">{new Date(item.lastVisitTime).toLocaleString()}</span>
+const HistoryItemComponent = memo(({ item, isLight }: { item: HistoryItem; isLight: boolean }) => {
+  return (
+    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
+    <div
+      className={`p-2 mb-1 rounded ${isLight ? 'bg-white shadow-sm hover:bg-blue-50' : 'bg-gray-700 hover:bg-gray-600'} 
+      transition-colors duration-150 cursor-pointer group`}
+      onClick={() => window.open(item.url, '_blank')}>
+      <div className="font-medium truncate flex justify-between">
+        <span>{item.title || 'Untitled'}</span>
+      </div>
+      <div className="flex justify-between text-xs mt-1">
+        <a
+          href={item.url}
+          target="_blank"
+          className="truncate text-blue-400 hover:underline"
+          onClick={e => e.stopPropagation()}>
+          {item.url}
+        </a>
+        <span className="text-gray-400 whitespace-nowrap ml-2">{new Date(item.lastVisitTime).toLocaleString()}</span>
+      </div>
     </div>
-  </div>
-));
+  );
+});
 
 // Component for show title block
 const ShowBlock = memo(
