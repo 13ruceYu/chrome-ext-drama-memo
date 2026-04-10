@@ -16,12 +16,19 @@ export const extractDomain = (url: string): string => {
 
 /**
  * Extract show title from page title based on domain
+ * @param url Optional URL – used to extract BV ID for bilibili/video URLs
  */
-export const extractShowTitle = (title: string, domain: string): string => {
+export const extractShowTitle = (title: string, domain: string, url?: string): string => {
   if (!title) return 'Unknown';
 
   // Different extraction logic based on domain
   if (domain === 'bilibili.com') {
+    // For bilibili /video/BVxxx URLs, group by BV ID
+    if (url) {
+      const bvMatch = url.match(/\/video\/(BV[\w]+)/);
+      if (bvMatch) return bvMatch[1];
+    }
+
     // Handle movie format
     if (title.includes('-电影-')) {
       return title.split('-')[0].trim();

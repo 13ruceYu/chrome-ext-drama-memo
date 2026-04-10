@@ -24,6 +24,18 @@ export const grouped = {
       title: '一级恐惧-电影-高清正版在线观看-bilibili-哔哩哔哩',
       lastVisitTime: 1734084319162.814,
     },
+    {
+      id: '112701',
+      url: 'https://www.bilibili.com/video/BV1jxaSzhEKe?p=5',
+      title: '毒枭 第一季 第5集-bilibili-哔哩哔哩',
+      lastVisitTime: 1744243200000,
+    },
+    {
+      id: '112700',
+      url: 'https://www.bilibili.com/video/BV1jxaSzhEKe?p=4',
+      title: '毒枭 第一季 第4集-bilibili-哔哩哔哩',
+      lastVisitTime: 1744243100000,
+    },
   ],
   'iyf.tv': [
     {
@@ -87,6 +99,20 @@ export const groupedGrouped = {
         url: 'https://www.bilibili.com/bangumi/play/ss33948?theme=movie&spm_id_from=333.337.0.0&from_spmid=666.25.recommend.0',
         title: '一级恐惧-电影-高清正版在线观看-bilibili-哔哩哔哩',
         lastVisitTime: 1734084319162.814,
+      },
+    ],
+    毒枭第一季: [
+      {
+        id: '112701',
+        url: 'https://www.bilibili.com/video/BV1jxaSzhEKe?p=5',
+        title: '毒枭 第一季 第5集-bilibili-哔哩哔哩',
+        lastVisitTime: 1744243200000,
+      },
+      {
+        id: '112700',
+        url: 'https://www.bilibili.com/video/BV1jxaSzhEKe?p=4',
+        title: '毒枭 第一季 第4集-bilibili-哔哩哔哩',
+        lastVisitTime: 1744243100000,
       },
     ],
   },
