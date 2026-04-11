@@ -36,27 +36,46 @@ const VIDEO_DOMAINS = ['bilibili.com/bangumi', 'bilibili.com/video', 'iyf.tv/pla
 const HISTORY_DAYS = 60;
 const HISTORY_MAX_RESULTS = 5000;
 
+// SVG chevron — rotates 90° when open
+const ChevronRight = ({ isOpen, className }: { isOpen: boolean; className?: string }) => (
+  <svg
+    className={`w-3 h-3 flex-shrink-0 transition-transform duration-150 ${isOpen ? 'rotate-90' : ''} ${className ?? ''}`}
+    viewBox="0 0 12 12"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth={1.8}
+    strokeLinecap="round"
+    strokeLinejoin="round">
+    <path d="M4.5 2.5L7.5 6l-3 3.5" />
+  </svg>
+);
+
+// Format bilibili raw title (e.g. "3_哔哩哔哩_bilibili") → "第 3 集"
+const formatEpisodeTitle = (title: string, url: string): string => {
+  if (url.includes('bilibili.com/video')) {
+    const epMatch = title.match(/^(\d+)_/);
+    if (epMatch) return `第 ${epMatch[1]} 集`;
+  }
+  return title || 'Untitled';
+};
+
 // Component for a single history item
 const HistoryItemComponent = memo(({ item, isLight }: { item: HistoryItem; isLight: boolean }) => {
+  const displayTitle = formatEpisodeTitle(item.title, item.url);
+  const d = new Date(item.lastVisitTime);
+  const date = d.toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric' });
+  const time = d.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false });
   return (
     // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
     <div
-      className={`p-2 mb-1 rounded ${isLight ? 'bg-white shadow-sm hover:bg-blue-50' : 'bg-gray-700 hover:bg-gray-600'} 
-      transition-colors duration-150 cursor-pointer group`}
+      className={`px-2.5 py-1.5 mb-0.5 rounded-md cursor-pointer flex justify-between items-center
+        ${isLight ? 'hover:bg-gray-100 text-gray-800' : 'hover:bg-gray-700/50 text-gray-200'}
+        transition-colors duration-100`}
       onClick={() => window.open(item.url, '_blank')}>
-      <div className="font-medium truncate flex justify-between">
-        <span>{item.title || 'Untitled'}</span>
-      </div>
-      <div className="flex justify-between text-xs mt-1">
-        <a
-          href={item.url}
-          target="_blank"
-          className="truncate text-blue-400 hover:underline"
-          onClick={e => e.stopPropagation()}>
-          {item.url}
-        </a>
-        <span className="text-gray-400 whitespace-nowrap ml-2">{new Date(item.lastVisitTime).toLocaleString()}</span>
-      </div>
+      <span className="text-sm truncate">{displayTitle}</span>
+      <span className={`text-xs ml-3 flex-shrink-0 tabular-nums ${isLight ? 'text-gray-400' : 'text-gray-500'}`}>
+        {date} {time}
+      </span>
     </div>
   );
 });
@@ -64,38 +83,37 @@ const HistoryItemComponent = memo(({ item, isLight }: { item: HistoryItem; isLig
 // Component for a single bookmark item
 const BookmarkItemComponent = memo(
   ({ bookmark, isLight, onDelete }: { bookmark: Bookmark; isLight: boolean; onDelete: (id: string) => void }) => {
+    const date = new Date(bookmark.addedAt).toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric' });
     return (
       // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
       <div
-        className={`p-2 mb-1 rounded ${
-          isLight ? 'bg-white shadow-sm hover:bg-blue-50' : 'bg-gray-700 hover:bg-gray-600'
-        } transition-colors duration-150 cursor-pointer`}
+        className={`px-3 py-2.5 mb-1 rounded-md cursor-pointer group
+          ${isLight ? 'bg-white border border-gray-200 hover:border-gray-300' : 'bg-gray-800 border border-gray-700/50 hover:border-gray-600'}
+          transition-colors duration-100`}
         onClick={() => window.open(bookmark.url, '_blank')}>
-        <div className="font-medium truncate flex justify-between items-center">
-          <span>{bookmark.showTitle}</span>
-          <button
-            onClick={e => {
-              e.stopPropagation();
-              onDelete(bookmark.id);
-            }}
-            className="ml-2 flex-shrink-0 text-xs text-red-400 hover:text-red-300">
-            删除
-          </button>
-        </div>
-        {bookmark.title && bookmark.title !== bookmark.showTitle && (
-          <div className="text-xs opacity-70 truncate mt-0.5">{bookmark.title}</div>
-        )}
-        <div className="flex justify-between text-xs mt-1">
-          <a
-            href={bookmark.url}
-            target="_blank"
-            className="truncate text-blue-400 hover:underline"
-            onClick={e => e.stopPropagation()}>
-            {bookmark.url}
-          </a>
-          <span className="text-gray-400 whitespace-nowrap ml-2">
-            {new Date(bookmark.addedAt).toLocaleDateString()}
-          </span>
+        <div className="flex justify-between items-start gap-2">
+          <div className="flex-1 min-w-0">
+            <div className={`text-sm font-medium truncate ${isLight ? 'text-gray-900' : 'text-gray-100'}`}>
+              {bookmark.showTitle}
+            </div>
+            {bookmark.title && bookmark.title !== bookmark.showTitle && (
+              <div className={`text-xs mt-0.5 truncate ${isLight ? 'text-gray-500' : 'text-gray-400'}`}>
+                {bookmark.title}
+              </div>
+            )}
+          </div>
+          <div className="flex items-center gap-2.5 flex-shrink-0">
+            <span className={`text-xs tabular-nums ${isLight ? 'text-gray-400' : 'text-gray-500'}`}>{date}</span>
+            <button
+              onClick={e => {
+                e.stopPropagation();
+                onDelete(bookmark.id);
+              }}
+              className={`text-xs opacity-0 group-hover:opacity-100 transition-opacity duration-100
+                ${isLight ? 'text-red-400 hover:text-red-500' : 'text-red-400/80 hover:text-red-400'}`}>
+              删除
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -124,13 +142,16 @@ const ShowBlock = memo(
     const displayTitle = labelMap?.[showTitle] ?? showTitle;
     const [showAll, setShowAll] = useState(false);
     const displayItems = showAll ? items : items.slice(0, 5);
+    const latestDate = items[0]
+      ? new Date(items[0].lastVisitTime).toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric' })
+      : '';
 
     return (
-      <div className="mb-3">
+      <div className="mb-0.5">
         <div
-          className={`flex items-center justify-between p-1.5 ${
-            isLight ? 'bg-gray-100' : 'bg-gray-600'
-          } rounded-t cursor-pointer hover:bg-opacity-80`}
+          className={`flex items-center justify-between px-2 py-1.5 rounded-md cursor-pointer select-none
+            ${isLight ? 'hover:bg-gray-100' : 'hover:bg-gray-700/40'}
+            transition-colors duration-100`}
           onClick={e => {
             e.stopPropagation();
             toggleBlock(domain, showTitle);
@@ -144,17 +165,24 @@ const ShowBlock = memo(
           role="button"
           tabIndex={0}
           aria-expanded={isExpanded}>
-          <h4 className="font-medium flex items-center">
-            <span className="mr-1 text-xs">{isExpanded ? '▼' : '►'}</span>
-            {displayTitle} ({items.length})
-          </h4>
-          {!isExpanded && items.length > 0 && (
-            <span className="text-xs opacity-70">Latest: {new Date(items[0].lastVisitTime).toLocaleDateString()}</span>
+          <div className="flex items-center gap-2 min-w-0">
+            <ChevronRight isOpen={isExpanded} className={isLight ? 'text-gray-400' : 'text-gray-500'} />
+            <span className={`text-sm font-medium truncate ${isLight ? 'text-gray-800' : 'text-gray-200'}`}>
+              {displayTitle}
+            </span>
+            <span className={`text-xs flex-shrink-0 ${isLight ? 'text-gray-400' : 'text-gray-500'}`}>
+              {items.length}
+            </span>
+          </div>
+          {!isExpanded && latestDate && (
+            <span className={`text-xs flex-shrink-0 ml-2 tabular-nums ${isLight ? 'text-gray-400' : 'text-gray-500'}`}>
+              {latestDate}
+            </span>
           )}
         </div>
 
         {isExpanded && (
-          <div className="p-1">
+          <div className={`ml-4 pl-2.5 border-l ${isLight ? 'border-gray-200' : 'border-gray-700/50'}`}>
             {displayItems.map(item => (
               <HistoryItemComponent key={item.id} item={item} isLight={isLight} />
             ))}
@@ -164,10 +192,9 @@ const ShowBlock = memo(
                   e.stopPropagation();
                   setShowAll(!showAll);
                 }}
-                className={`w-full text-center py-1 mt-2 text-sm rounded ${
-                  isLight ? 'bg-gray-100 hover:bg-gray-200' : 'bg-gray-600 hover:bg-gray-500'
-                }`}>
-                {showAll ? 'Show Less' : `Show All (${items.length - 5} more)`}
+                className={`w-full text-center py-1 mt-1 text-xs rounded transition-colors duration-100
+                  ${isLight ? 'text-gray-400 hover:text-gray-600' : 'text-gray-500 hover:text-gray-400'}`}>
+                {showAll ? '收起' : `展开全部（还有 ${items.length - 5} 条）`}
               </button>
             )}
           </div>
@@ -219,11 +246,11 @@ const DomainBlock = memo(
     const showCount = Object.keys(filteredShowGroups).length;
 
     return (
-      <div className="mb-6">
+      <div className="mb-5">
+        {/* Domain section label — Linear style */}
         <div
-          className={`flex items-center p-2 ${
-            isLight ? 'bg-gray-300' : 'bg-gray-600'
-          } rounded-t cursor-pointer hover:bg-opacity-90`}
+          className={`flex items-center gap-2 px-1.5 py-1 mb-1.5 cursor-pointer select-none group
+            transition-colors duration-100`}
           onClick={() => toggleBlock(domain)}
           onKeyDown={e => {
             if (e.key === 'Enter' || e.key === ' ') toggleBlock(domain);
@@ -231,24 +258,35 @@ const DomainBlock = memo(
           role="button"
           tabIndex={0}
           aria-expanded={isDomainExpanded}>
-          <span className="mr-1 text-xs">{isDomainExpanded ? '▼' : '►'}</span>
           <img
             src={`https://www.google.com/s2/favicons?domain=${domain}&sz=32`}
             alt="domain icon"
-            className="w-5 h-5 mr-2"
+            className="w-3.5 h-3.5 opacity-60"
             onError={e => {
               (e.target as HTMLImageElement).src = chrome.runtime.getURL('icon-34.png');
             }}
           />
-          <h3 className="font-bold">
-            {domain} ({totalItems})
-          </h3>
-
-          {!isDomainExpanded && <span className="text-xs opacity-70 ml-auto">{showCount} shows</span>}
+          <span
+            className={`text-xs font-semibold tracking-widest uppercase
+              ${isLight ? 'text-gray-400 group-hover:text-gray-600' : 'text-gray-500 group-hover:text-gray-300'}
+              transition-colors duration-100`}>
+            {domain}
+          </span>
+          <span className={`text-xs ${isLight ? 'text-gray-300' : 'text-gray-600'}`}>({totalItems})</span>
+          <ChevronRight
+            isOpen={isDomainExpanded}
+            className={isLight ? 'text-gray-300 group-hover:text-gray-500' : 'text-gray-600 group-hover:text-gray-400'}
+          />
+          {!isDomainExpanded && (
+            <span className={`text-xs ml-auto ${isLight ? 'text-gray-300' : 'text-gray-600'}`}>{showCount} 部剧</span>
+          )}
         </div>
 
+        {/* Separator */}
+        <div className={`h-px mb-2 ${isLight ? 'bg-gray-200' : 'bg-gray-700/50'}`} />
+
         {isDomainExpanded && (
-          <div className={`rounded-b ${isLight ? 'bg-gray-200' : 'bg-gray-700'} p-2 mb-2`}>
+          <div>
             {Object.entries(filteredShowGroups).map(([showTitle, items]) => (
               <ShowBlock
                 key={`${domain}-${showTitle}`}
@@ -274,7 +312,10 @@ const Popup = () => {
   const [groupedGroupedHistory, setGroupedGroupedHistory] = useState<GroupedGroupedHistory>({});
   const [expandedBlocks, setExpandedBlocks] = useState<{ [key: string]: boolean }>({});
   const [isLoading, setIsLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'history' | 'bookmarks'>('history');
+  const [activeTab, setActiveTab] = useState<'history' | 'bookmarks' | 'settings'>('history');
+  const [historyDays, setHistoryDays] = useState(HISTORY_DAYS);
+  const [historyMaxResults, setHistoryMaxResults] = useState(HISTORY_MAX_RESULTS);
+  const [settingsDraft, setSettingsDraft] = useState({ days: HISTORY_DAYS, maxResults: HISTORY_MAX_RESULTS });
   const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
   const [showAddForm, setShowAddForm] = useState(false);
   const [addFormData, setAddFormData] = useState({ url: '', title: '', showTitle: '' });
@@ -286,6 +327,17 @@ const Popup = () => {
       ...prev,
       [key]: !prev[key],
     }));
+  }, []);
+
+  useEffect(() => {
+    chrome.storage.local.get(['bookmarks', 'historySettings'], result => {
+      if (result.historySettings) {
+        const s = result.historySettings as { days: number; maxResults: number };
+        setHistoryDays(s.days);
+        setHistoryMaxResults(s.maxResults);
+        setSettingsDraft(s);
+      }
+    });
   }, []);
 
   useEffect(() => {
@@ -363,7 +415,7 @@ const Popup = () => {
 
       try {
         const millisecondsPerDay = 1000 * 60 * 60 * 24;
-        const startTime = new Date().getTime() - HISTORY_DAYS * millisecondsPerDay;
+        const startTime = new Date().getTime() - historyDays * millisecondsPerDay;
 
         // Let the loading state paint before we do heavier work.
         await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
@@ -371,7 +423,7 @@ const Popup = () => {
         const items = await chrome.history.search({
           text: '', // Search all history
           startTime,
-          maxResults: HISTORY_MAX_RESULTS,
+          maxResults: historyMaxResults,
         });
 
         // Filter out video websites and map to our interface
@@ -409,22 +461,21 @@ const Popup = () => {
     };
 
     fetchHistory();
-  }, []);
+  }, [historyDays, historyMaxResults]);
 
   // Process history items into grouped structure
   const processHistoryItems = (items: HistoryItem[]): GroupedGroupedHistory => {
-    // Deduplicate: for bilibili/video, key = BV+p param; for others, key = URL (stripped of tracking params)
+    // Deduplicate: for all bilibili URLs, key = BV+p param; for others, key = hostname+pathname
     const seen = new Map<string, HistoryItem>();
     items.forEach(item => {
       let dedupeKey: string;
       try {
         const u = new URL(item.url);
-        if (item.url.includes('bilibili.com/video')) {
-          const bvMatch = item.url.match(/\/video\/(BV[\w]+)/);
+        const bvMatch = item.url.match(/\/video\/(BV[\w]+)/);
+        if (item.url.includes('bilibili.com/video') && bvMatch) {
           const p = u.searchParams.get('p') || '1';
-          dedupeKey = bvMatch ? `${bvMatch[1]}?p=${p}` : item.url;
+          dedupeKey = `${bvMatch[1]}?p=${p}`;
         } else {
-          // Strip common tracking params and use pathname+essential params as key
           dedupeKey = u.hostname + u.pathname;
         }
       } catch {
@@ -453,24 +504,10 @@ const Popup = () => {
       grouped[domain][showTitle].push(item);
     });
 
-    // Sort items within each show group and dedup by p-param within BV groups
+    // Sort items within each show group
     Object.keys(grouped).forEach(domain => {
       Object.keys(grouped[domain]).forEach(showTitle => {
         grouped[domain][showTitle].sort((a, b) => b.lastVisitTime - a.lastVisitTime);
-        // Secondary dedup within each group by episode number (p param)
-        if (/^BV[\w]+$/.test(showTitle)) {
-          const seenEpisodes = new Set<string>();
-          grouped[domain][showTitle] = grouped[domain][showTitle].filter(item => {
-            try {
-              const p = new URL(item.url).searchParams.get('p') || '1';
-              if (seenEpisodes.has(p)) return false;
-              seenEpisodes.add(p);
-              return true;
-            } catch {
-              return true;
-            }
-          });
-        }
       });
     });
 
@@ -514,56 +551,60 @@ const Popup = () => {
 
   return (
     <div
-      className={`App flex flex-col h-screen ${
-        isLight ? 'bg-slate-50 text-gray-900 light-theme' : 'bg-gray-800 text-gray-100 dark-theme'
-      }`}>
-      <header className={`flex flex-col p-2 sticky top-0 z-10 ${isLight ? 'bg-slate-50' : 'bg-gray-800'}`}>
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-bold">
-            {activeTab === 'history' ? `历史记录 (${totalItemsCount})` : `我的收藏 (${bookmarks.length})`}
-          </h2>
-          <div className="hover:bg-slate-500/20 rounded-full p-1 leading-none">
-            <ToggleButton className="size-5"></ToggleButton>
+      className={`App flex flex-col h-screen ${isLight ? 'bg-slate-50 text-gray-900' : 'bg-gray-900 text-gray-100'}`}>
+      {/* Header */}
+      <header className={`px-4 pt-3 pb-0 sticky top-0 z-10 ${isLight ? 'bg-slate-50' : 'bg-gray-900'}`}>
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <img src={chrome.runtime.getURL('icon-34.png')} alt="icon" className="w-5 h-5" />
+            <div>
+              <h1 className={`text-sm font-semibold ${isLight ? 'text-gray-900' : 'text-gray-100'}`}>追剧备忘录</h1>
+            </div>
           </div>
+          <button
+            className={`p-1.5 rounded-md transition-colors duration-100
+              ${isLight ? 'hover:bg-gray-100 text-gray-500' : 'hover:bg-gray-800 text-gray-400'}`}>
+            <ToggleButton className="size-4" />
+          </button>
         </div>
-        <div className="flex mt-1.5 gap-2">
-          <button
-            className={`flex-1 py-1 text-sm rounded ${
-              activeTab === 'history'
-                ? isLight
-                  ? 'bg-gray-300 font-bold'
-                  : 'bg-gray-500 font-bold'
-                : isLight
-                  ? 'bg-gray-100'
-                  : 'bg-gray-700'
-            }`}
-            onClick={() => setActiveTab('history')}>
-            历史记录
-          </button>
-          <button
-            className={`flex-1 py-1 text-sm rounded ${
-              activeTab === 'bookmarks'
-                ? isLight
-                  ? 'bg-gray-300 font-bold'
-                  : 'bg-gray-500 font-bold'
-                : isLight
-                  ? 'bg-gray-100'
-                  : 'bg-gray-700'
-            }`}
-            onClick={() => setActiveTab('bookmarks')}>
-            我的收藏
-          </button>
+        {/* Underline tabs */}
+        <div className={`flex border-b ${isLight ? 'border-gray-200' : 'border-gray-700/60'}`}>
+          {(['history', 'bookmarks', 'settings'] as const).map(tab => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`relative px-4 py-2 text-sm transition-colors duration-150
+                ${
+                  activeTab === tab
+                    ? isLight
+                      ? 'text-gray-900 font-medium'
+                      : 'text-gray-100 font-medium'
+                    : isLight
+                      ? 'text-gray-400 hover:text-gray-600'
+                      : 'text-gray-500 hover:text-gray-300'
+                }`}>
+              {tab === 'history' ? '历史记录' : tab === 'bookmarks' ? '我的收藏' : '设置'}
+              {activeTab === tab && (
+                <span
+                  className={`absolute bottom-0 left-0 right-0 h-0.5 rounded-t ${isLight ? 'bg-gray-800' : 'bg-gray-200'}`}
+                />
+              )}
+            </button>
+          ))}
         </div>
       </header>
-      <main className="flex-1 overflow-y-auto overflow-x-hidden px-2">
+
+      <main className="flex-1 overflow-y-auto overflow-x-hidden px-3 pt-3 pb-4">
         {activeTab === 'history' ? (
           isLoading ? (
             <div className="loading-container" aria-live="polite">
               <div className="loading-spinner" aria-hidden="true"></div>
-              <div className="loading-text">Loading history...</div>
+              <div className={`loading-text ${isLight ? 'text-gray-400' : 'text-gray-500'}`}>加载中…</div>
             </div>
           ) : totalItemsCount === 0 ? (
-            <div className="w-full text-center py-8">No video history found</div>
+            <div className={`w-full text-center py-12 text-sm ${isLight ? 'text-gray-400' : 'text-gray-500'}`}>
+              暂无观看记录
+            </div>
           ) : (
             Object.entries(groupedGroupedHistory).map(([domain, showGroups]) => (
               <DomainBlock
@@ -577,48 +618,57 @@ const Popup = () => {
               />
             ))
           )
-        ) : (
-          <div className="mt-2">
+        ) : activeTab === 'bookmarks' ? (
+          <div>
+            {/* Add bookmark button / form */}
             {showAddForm ? (
-              <div className={`p-3 mb-3 rounded ${isLight ? 'bg-gray-100' : 'bg-gray-700'}`}>
-                <h3 className="font-bold mb-2">添加收藏</h3>
-                <div className="mb-2">
-                  <label htmlFor="bm-url" className="text-xs opacity-70 block mb-1">
+              <div
+                className={`rounded-lg p-4 mb-4 ${
+                  isLight ? 'bg-white border border-gray-200' : 'bg-gray-800 border border-gray-700/50'
+                }`}>
+                <h3 className={`text-sm font-semibold mb-3 ${isLight ? 'text-gray-700' : 'text-gray-300'}`}>
+                  添加收藏
+                </h3>
+                <div className="mb-2.5">
+                  <label
+                    htmlFor="bm-url"
+                    className={`text-xs block mb-1 ${isLight ? 'text-gray-400' : 'text-gray-500'}`}>
                     网址
                   </label>
                   <input
                     id="bm-url"
-                    className={`w-full p-1.5 rounded text-sm ${
-                      isLight ? 'bg-white border border-gray-300' : 'bg-gray-600 border-0'
-                    }`}
+                    className={`w-full px-3 py-1.5 rounded-md text-sm focus:outline-none transition-colors
+                      ${isLight ? 'bg-gray-50 border border-gray-300 focus:border-gray-400 text-gray-900' : 'bg-gray-900 border border-gray-600 focus:border-gray-500 text-gray-100'}`}
                     value={addFormData.url}
                     onChange={e => setAddFormData(prev => ({ ...prev, url: e.target.value }))}
                   />
                 </div>
-                <div className="mb-2">
-                  <label htmlFor="bm-show" className="text-xs opacity-70 block mb-1">
+                <div className="mb-2.5">
+                  <label
+                    htmlFor="bm-show"
+                    className={`text-xs block mb-1 ${isLight ? 'text-gray-400' : 'text-gray-500'}`}>
                     剧名（用于分组）
                   </label>
                   <input
                     id="bm-show"
-                    className={`w-full p-1.5 rounded text-sm ${
-                      isLight ? 'bg-white border border-gray-300' : 'bg-gray-600 border-0'
-                    }`}
+                    className={`w-full px-3 py-1.5 rounded-md text-sm focus:outline-none transition-colors
+                      ${isLight ? 'bg-gray-50 border border-gray-300 focus:border-gray-400 text-gray-900' : 'bg-gray-900 border border-gray-600 focus:border-gray-500 text-gray-100'}`}
                     placeholder="例：毒枭 第一季"
                     value={addFormData.showTitle}
                     onChange={e => setAddFormData(prev => ({ ...prev, showTitle: e.target.value }))}
                   />
                 </div>
-                <div className="mb-3">
-                  <label htmlFor="bm-title" className="text-xs opacity-70 block mb-1">
-                    标题（当前看到哪集）
+                <div className="mb-4">
+                  <label
+                    htmlFor="bm-title"
+                    className={`text-xs block mb-1 ${isLight ? 'text-gray-400' : 'text-gray-500'}`}>
+                    进度（看到哪集）
                   </label>
                   <input
                     id="bm-title"
-                    className={`w-full p-1.5 rounded text-sm ${
-                      isLight ? 'bg-white border border-gray-300' : 'bg-gray-600 border-0'
-                    }`}
-                    placeholder="例：第5集"
+                    className={`w-full px-3 py-1.5 rounded-md text-sm focus:outline-none transition-colors
+                      ${isLight ? 'bg-gray-50 border border-gray-300 focus:border-gray-400 text-gray-900' : 'bg-gray-900 border border-gray-600 focus:border-gray-500 text-gray-100'}`}
+                    placeholder="例：第 5 集"
                     value={addFormData.title}
                     onChange={e => setAddFormData(prev => ({ ...prev, title: e.target.value }))}
                   />
@@ -626,14 +676,13 @@ const Popup = () => {
                 <div className="flex gap-2">
                   <button
                     onClick={saveBookmark}
-                    className="flex-1 py-1.5 rounded bg-blue-500 hover:bg-blue-400 text-white text-sm">
+                    className="px-4 py-1.5 rounded-md bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium transition-colors duration-100">
                     保存
                   </button>
                   <button
                     onClick={() => setShowAddForm(false)}
-                    className={`flex-1 py-1.5 rounded text-sm ${
-                      isLight ? 'bg-gray-200 hover:bg-gray-300' : 'bg-gray-600 hover:bg-gray-500'
-                    }`}>
+                    className={`px-4 py-1.5 rounded-md text-sm transition-colors duration-100
+                      ${isLight ? 'text-gray-600 hover:bg-gray-100' : 'text-gray-400 hover:bg-gray-700'}`}>
                     取消
                   </button>
                 </div>
@@ -641,56 +690,117 @@ const Popup = () => {
             ) : (
               <button
                 onClick={openAddForm}
-                className={`w-full py-2 mb-3 rounded text-sm ${
-                  isLight ? 'bg-gray-100 hover:bg-gray-200' : 'bg-gray-700 hover:bg-gray-600'
-                }`}>
+                className={`w-full py-2 mb-4 rounded-md text-sm border transition-colors duration-100
+                  ${isLight ? 'border-gray-200 text-gray-500 hover:border-gray-300 hover:text-gray-700 hover:bg-gray-50' : 'border-gray-700 text-gray-500 hover:border-gray-600 hover:text-gray-300 hover:bg-gray-800/50'}`}>
                 + 收藏当前页面
               </button>
             )}
+
+            {/* Bookmark list */}
             {bookmarks.length === 0 ? (
-              <div className="w-full text-center py-8 opacity-50">暂无收藏</div>
+              <div className={`w-full text-center py-12 text-sm ${isLight ? 'text-gray-400' : 'text-gray-500'}`}>
+                暂无收藏
+              </div>
             ) : (
               Object.entries(groupedBookmarks).map(([domain, showGroups]) => (
-                <div key={domain} className="mb-6">
-                  <div className={`flex items-center p-2 ${isLight ? 'bg-gray-300' : 'bg-gray-600'} rounded-t`}>
+                <div key={domain} className="mb-5">
+                  {/* Domain label */}
+                  <div className="flex items-center gap-2 px-1.5 py-1 mb-1.5">
                     <img
                       src={`https://www.google.com/s2/favicons?domain=${domain}&sz=32`}
                       alt="domain icon"
-                      className="w-5 h-5 mr-2"
+                      className="w-3.5 h-3.5 opacity-60"
                       onError={e => {
                         (e.target as HTMLImageElement).src = chrome.runtime.getURL('icon-34.png');
                       }}
                     />
-                    <h3 className="font-bold">{domain}</h3>
+                    <span
+                      className={`text-xs font-semibold tracking-widest uppercase ${isLight ? 'text-gray-400' : 'text-gray-500'}`}>
+                      {domain}
+                    </span>
                   </div>
-                  <div className={`rounded-b ${isLight ? 'bg-gray-200' : 'bg-gray-700'} p-2 mb-2`}>
-                    {Object.entries(showGroups).map(([showTitle, items]) => (
-                      <div key={showTitle} className="mb-3">
-                        <h4 className={`font-medium p-1.5 ${isLight ? 'bg-gray-100' : 'bg-gray-600'} rounded-t mb-1`}>
-                          {showTitle}
-                        </h4>
-                        <div className="p-1">
-                          {items.map(bookmark => (
-                            <BookmarkItemComponent
-                              key={bookmark.id}
-                              bookmark={bookmark}
-                              isLight={isLight}
-                              onDelete={deleteBookmark}
-                            />
-                          ))}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                  <div className={`h-px mb-3 ${isLight ? 'bg-gray-200' : 'bg-gray-700/50'}`} />
+                  {Object.entries(showGroups).map(([showTitle, items]) => (
+                    <div key={showTitle} className="mb-3">
+                      <p className={`text-xs px-1 mb-1.5 ${isLight ? 'text-gray-400' : 'text-gray-500'}`}>
+                        {showTitle}
+                      </p>
+                      {items.map(bookmark => (
+                        <BookmarkItemComponent
+                          key={bookmark.id}
+                          bookmark={bookmark}
+                          isLight={isLight}
+                          onDelete={deleteBookmark}
+                        />
+                      ))}
+                    </div>
+                  ))}
                 </div>
               ))
             )}
           </div>
-        )}
+        ) : activeTab === 'settings' ? (
+          <div className="py-2">
+            <p
+              className={`text-xs font-semibold tracking-widest uppercase mb-4 px-1 ${isLight ? 'text-gray-400' : 'text-gray-500'}`}>
+              历史搜索范围
+            </p>
+            <div
+              className={`rounded-lg p-4 ${isLight ? 'bg-white border border-gray-200' : 'bg-gray-800 border border-gray-700/50'}`}>
+              <div className="mb-4">
+                <label
+                  htmlFor="settings-days"
+                  className={`text-xs block mb-1.5 ${isLight ? 'text-gray-500' : 'text-gray-400'}`}>
+                  时间范围（天）
+                </label>
+                <input
+                  id="settings-days"
+                  type="number"
+                  min={1}
+                  max={365}
+                  className={`w-full px-3 py-1.5 rounded-md text-sm focus:outline-none transition-colors
+                    ${isLight ? 'bg-gray-50 border border-gray-300 focus:border-gray-400 text-gray-900' : 'bg-gray-900 border border-gray-600 focus:border-gray-500 text-gray-100'}`}
+                  value={settingsDraft.days}
+                  onChange={e => setSettingsDraft(prev => ({ ...prev, days: Number(e.target.value) }))}
+                />
+                <p className={`text-xs mt-1 ${isLight ? 'text-gray-400' : 'text-gray-500'}`}>当前：{historyDays} 天</p>
+              </div>
+              <div className="mb-4">
+                <label
+                  htmlFor="settings-max"
+                  className={`text-xs block mb-1.5 ${isLight ? 'text-gray-500' : 'text-gray-400'}`}>
+                  最大条数
+                </label>
+                <input
+                  id="settings-max"
+                  type="number"
+                  min={100}
+                  max={50000}
+                  step={100}
+                  className={`w-full px-3 py-1.5 rounded-md text-sm focus:outline-none transition-colors
+                    ${isLight ? 'bg-gray-50 border border-gray-300 focus:border-gray-400 text-gray-900' : 'bg-gray-900 border border-gray-600 focus:border-gray-500 text-gray-100'}`}
+                  value={settingsDraft.maxResults}
+                  onChange={e => setSettingsDraft(prev => ({ ...prev, maxResults: Number(e.target.value) }))}
+                />
+                <p className={`text-xs mt-1 ${isLight ? 'text-gray-400' : 'text-gray-500'}`}>
+                  当前：{historyMaxResults} 条
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  const s = { days: settingsDraft.days, maxResults: settingsDraft.maxResults };
+                  chrome.storage.local.set({ historySettings: s });
+                  setHistoryDays(s.days);
+                  setHistoryMaxResults(s.maxResults);
+                  setActiveTab('history');
+                }}
+                className="px-4 py-1.5 rounded-md bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium transition-colors duration-100">
+                保存并刷新
+              </button>
+            </div>
+          </div>
+        ) : null}
       </main>
-      <footer className="py-2 text-center text-xs opacity-50">
-        {!isLoading && totalItemsCount > 0 && `Showing ${totalItemsCount} history items`}
-      </footer>
     </div>
   );
 };
