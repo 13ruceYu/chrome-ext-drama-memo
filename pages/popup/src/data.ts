@@ -57,16 +57,6 @@ export const grouped = {
       lastVisitTime: 1741666984207.965,
     },
   ],
-  'zxzjhd.com': [
-    {
-      id: '112632',
-      lastVisitTime: 1742048118833.256,
-      title: '《生活大爆炸第五季》第22集在线观看- 在线之家',
-      typedCount: 0,
-      url: 'https://www.zxzjhd.com/video/59-1-22.html',
-      visitCount: 2,
-    },
-  ],
 };
 
 export const groupedGrouped = {
@@ -113,16 +103,6 @@ export const groupedGrouped = {
         url: 'https://www.bilibili.com/video/BV1jxaSzhEKe?p=4',
         title: '毒枭 第一季 第4集-bilibili-哔哩哔哩',
         lastVisitTime: 1744243100000,
-      },
-    ],
-  },
-  'zxzjhd.com': {
-    '《生活大爆炸第五季》': [
-      {
-        id: '112632',
-        lastVisitTime: 1742048118833.256,
-        title: '《生活大爆炸第五季》第22集在线观看- 在线之家',
-        url: 'https://www.zxzjhd.com/video/59-1-22.html',
       },
     ],
   },

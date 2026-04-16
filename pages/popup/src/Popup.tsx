@@ -32,9 +32,19 @@ interface GroupedGroupedHistory {
 }
 
 // Add this constant at the top of the file, after the interfaces
-const VIDEO_DOMAINS = ['bilibili.com/bangumi', 'bilibili.com/video', 'iyf.tv/play', 'zxzjhd.com/video'];
+const DEFAULT_VIDEO_DOMAINS = ['bilibili.com/bangumi', 'bilibili.com/video', 'iyf.tv/play'];
 const HISTORY_DAYS = 60;
 const HISTORY_MAX_RESULTS = 5000;
+
+const parseDomainRules = (raw: string): string[] => {
+  const rules = raw
+    .split(/\r?\n|,/)
+    .map(line => line.trim())
+    .filter(line => line && !line.startsWith('#'))
+    .map(line => line.replace(/^https?:\/\//, '').replace(/\/$/, ''));
+
+  return Array.from(new Set(rules));
+};
 
 // SVG chevron — rotates 90° when open
 const ChevronRight = ({ isOpen, className }: { isOpen: boolean; className?: string }) => (
@@ -316,6 +326,8 @@ const Popup = () => {
   const [historyDays, setHistoryDays] = useState(HISTORY_DAYS);
   const [historyMaxResults, setHistoryMaxResults] = useState(HISTORY_MAX_RESULTS);
   const [settingsDraft, setSettingsDraft] = useState({ days: HISTORY_DAYS, maxResults: HISTORY_MAX_RESULTS });
+  const [videoDomains, setVideoDomains] = useState<string[]>(DEFAULT_VIDEO_DOMAINS);
+  const [domainRulesDraft, setDomainRulesDraft] = useState(DEFAULT_VIDEO_DOMAINS.join('\n'));
   const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
   const [showAddForm, setShowAddForm] = useState(false);
   const [addFormData, setAddFormData] = useState({ url: '', title: '', showTitle: '' });
@@ -330,12 +342,24 @@ const Popup = () => {
   }, []);
 
   useEffect(() => {
-    chrome.storage.local.get(['bookmarks', 'historySettings'], result => {
+    chrome.storage.local.get(['bookmarks', 'historySettings', 'videoDomains'], result => {
       if (result.historySettings) {
         const s = result.historySettings as { days: number; maxResults: number };
         setHistoryDays(s.days);
         setHistoryMaxResults(s.maxResults);
         setSettingsDraft(s);
+      }
+
+      if (Array.isArray(result.videoDomains)) {
+        const loaded = result.videoDomains
+          .filter((v: unknown): v is string => typeof v === 'string')
+          .map(v => v.trim())
+          .filter(Boolean);
+
+        if (loaded.length > 0) {
+          setVideoDomains(loaded);
+          setDomainRulesDraft(loaded.join('\n'));
+        }
       }
     });
   }, []);
@@ -430,7 +454,7 @@ const Popup = () => {
         const mappedItems: HistoryItem[] = items
           .filter(item => {
             try {
-              if (!VIDEO_DOMAINS.some(domain => item.url?.includes(domain))) return false;
+              if (!videoDomains.some(domain => item.url?.includes(domain))) return false;
               // bilibili /video/ URLs must have ?p= to be episodic
               if (item.url?.includes('bilibili.com/video')) {
                 return new URL(item.url).searchParams.has('p');
@@ -461,7 +485,7 @@ const Popup = () => {
     };
 
     fetchHistory();
-  }, [historyDays, historyMaxResults]);
+  }, [historyDays, historyMaxResults, videoDomains]);
 
   // Process history items into grouped structure
   const processHistoryItems = (items: HistoryItem[]): GroupedGroupedHistory => {
@@ -786,12 +810,35 @@ const Popup = () => {
                   当前：{historyMaxResults} 条
                 </p>
               </div>
+              <div className="mb-4">
+                <label
+                  htmlFor="settings-domains"
+                  className={`text-xs block mb-1.5 ${isLight ? 'text-gray-500' : 'text-gray-400'}`}>
+                  站点匹配规则（每行一个，支持逗号分隔）
+                </label>
+                <textarea
+                  id="settings-domains"
+                  rows={5}
+                  className={`w-full px-3 py-2 rounded-md text-sm focus:outline-none transition-colors resize-y
+                    ${isLight ? 'bg-gray-50 border border-gray-300 focus:border-gray-400 text-gray-900' : 'bg-gray-900 border border-gray-600 focus:border-gray-500 text-gray-100'}`}
+                  value={domainRulesDraft}
+                  onChange={e => setDomainRulesDraft(e.target.value)}
+                />
+                <p className={`text-xs mt-1 ${isLight ? 'text-gray-400' : 'text-gray-500'}`}>
+                  当前生效：{videoDomains.length} 条规则
+                </p>
+              </div>
               <button
                 onClick={() => {
                   const s = { days: settingsDraft.days, maxResults: settingsDraft.maxResults };
+                  const parsedDomains = parseDomainRules(domainRulesDraft);
+                  const nextDomains = parsedDomains.length > 0 ? parsedDomains : DEFAULT_VIDEO_DOMAINS;
                   chrome.storage.local.set({ historySettings: s });
+                  chrome.storage.local.set({ videoDomains: nextDomains });
                   setHistoryDays(s.days);
                   setHistoryMaxResults(s.maxResults);
+                  setVideoDomains(nextDomains);
+                  setDomainRulesDraft(nextDomains.join('\n'));
                   setActiveTab('history');
                 }}
                 className="px-4 py-1.5 rounded-md bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium transition-colors duration-100">
